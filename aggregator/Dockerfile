@@ -5,16 +5,16 @@ FROM golang:1.23 AS builder
 WORKDIR /app
 
 # Copy go.mod and go.sum files from the root directory
-COPY ../go.mod ../go.sum ./
+COPY go.mod go.sum ./
 
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+# Download all dependencies
 RUN go mod download
 
-# Copy the source code into the container
-COPY . .
+# Copy the source code into the container from the aggregator directory
+COPY aggregator/ ./aggregator/
 
-# Build the Go app
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd  # Assuming main.go is inside /cmd
+# Build the Go app from the cmd directory
+RUN CGO_ENABLED=0 GOOS=linux go build -o main ./aggregator/cmd
 
 # Start a new stage from scratch
 FROM alpine:latest
@@ -25,11 +25,8 @@ WORKDIR /app
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /app/main .
 
-# Copy MongoDB driver libraries
-COPY --from=builder /usr/local/lib/*.so* /usr/local/lib/
-
 # Expose port 8080 to the outside world
-EXPOSE 8080
+EXPOSE 8005
 
 # Command to run the executable
 CMD ["./main"]

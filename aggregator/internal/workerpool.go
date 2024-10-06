@@ -2,20 +2,24 @@ package internal
 
 import (
 	"fmt"
-	"log-aggregator/shared"
 	"sync/atomic"
 	"time"
 )
 
+type LogMessage struct {
+	Timestamp time.Time `json:"timestamp"`
+	Level     string    `json:"level"`
+	Message   string    `json:"message"`
+}
 type Worker struct {
 	id     int
-	jobs   <-chan shared.LogMessage
+	jobs   <-chan LogMessage
 	quit   chan struct{}
 	active *int32
 }
 
 type WorkerPool struct {
-	jobs        chan shared.LogMessage
+	jobs        chan LogMessage
 	quit        chan struct{}
 	workers     []*Worker
 	activeCount int32
@@ -23,7 +27,7 @@ type WorkerPool struct {
 
 func NewWorkerPool(numWorkers int) *WorkerPool {
 
-	jobs := make(chan shared.LogMessage, 100) // Buffer to hold incoming jobs
+	jobs := make(chan LogMessage, 100) // Buffer to hold incoming jobs
 
 	pool := &WorkerPool{
 		jobs:        jobs,
@@ -72,7 +76,7 @@ func (w *Worker) Stop() {
 	close(w.quit) // Close the quit channel to signal the worker to stop
 }
 
-func (wp *WorkerPool) AddJob(logMsg shared.LogMessage) {
+func (wp *WorkerPool) AddJob(logMsg LogMessage) {
 	wp.jobs <- logMsg
 }
 

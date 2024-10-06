@@ -1,25 +1,21 @@
 version: '3.8'
 
 services:
-  mongo:
+  aggregator:
+    build:
+      context: .             # Set the context to the root level
+      dockerfile: aggregator/Dockerfile  # Specify the Dockerfile path
+    ports:
+      - "8005:8005"
+    depends_on:
+      - mongodb
+
+  mongodb:
     image: mongo:latest
-    container_name: mongo
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
-
-  aggregator:
-    build:
-      context: ./aggregator
-      dockerfile: Dockerfile
-    container_name: aggregator
-    ports:
-      - "8080:8080"
-    depends_on:
-      - mongo
-    environment:
-      - MONGO_URI=mongodb://mongo:27017
 
 volumes:
   mongo-data:

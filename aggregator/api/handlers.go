@@ -4,9 +4,15 @@ import (
 	"fmt"
 	"log-aggregator/aggregator/internal"
 	"log-aggregator/aggregator/utils"
-	"log-aggregator/shared"
 	"net/http"
+	"time"
 )
+
+type LogMessage struct {
+	Timestamp time.Time `json:"timestamp"`
+	Level     string    `json:"level"`
+	Message   string    `json:"message"`
+}
 
 // Handlers struct
 type Handlers struct {
@@ -31,7 +37,7 @@ func (h *Handlers) HandleLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var logMsg shared.LogMessage
+	var logMsg internal.LogMessage
 	if err := utils.DecodeJSON(r.Body, &logMsg); err != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
