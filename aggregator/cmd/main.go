@@ -1,42 +1,37 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"log-aggregator/aggregator/api"
-	"log-aggregator/aggregator/internal"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
 func main() {
-	// Load configuration
-	// config.Load()
+	// Initialize the worker pool with 5 workers
 
-	// Initialize the worker pool with the desired number of workers (e.g., 5)
-	wp := internal.NewWorkerPool(5)
+	// Create a signal channel
+	signals := make(chan os.Signal, 1)
 
-	// Create a new server
-	srv := api.NewServer(api.Config{}, wp)
+	// Notify the channel when an interrupt or terminate signal is received
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	// Create a channel to listen for interrupt signals
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
-	// Start the server in a goroutine
+	// Create the server
+	server := api.NewServer(api.Config{})
 	go func() {
-		if err := srv.Start(); err != nil {
+		if err := server.Start(); err != nil {
+			// this closes our application on Fatal error
 			log.Fatalf("Server failed to start: %v", err)
 		}
 	}()
 
-	fmt.Println("API started")
+	// Block the main thread, waiting for a signal to close our application
+	sig := <-signals
+	log.Printf("Received signal: %v. Shutting down...", sig)
 
-	// Wait for an interrupt signal
-	<-stop
-	fmt.Println("Shutting down server...")
+	// Stop the server when a signal is received
+	server.Stop()
 
-	// Stop the worker pool gracefully
-	wp.Stop()
+	log.Println("Server stopped successfully")
 }

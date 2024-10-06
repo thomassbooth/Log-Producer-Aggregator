@@ -8,28 +8,49 @@ import (
 
 const defaultListenAddr = ":8005"
 
+// Config holds the configuration for the server.
 type Config struct {
 	ListenAddr string
 }
 
+// Server struct holds the server's configuration, worker pool, and handlers.
 type Server struct {
 	Config
-	wp       *internal.WorkerPool
-	handlers *Handlers
+	wp             *internal.WorkerPool
+	handlers       *Handlers
+	circuitBreaker *internal.CircuitBreaker // Add circuit breaker field
 }
 
-func NewServer(cfg Config, wp *internal.WorkerPool) *Server {
+// NewServer initializes a new server with the given configuration and worker pool.
+func NewServer(cfg Config) *Server {
 	if len(cfg.ListenAddr) == 0 {
 		cfg.ListenAddr = defaultListenAddr
 	}
-	handlers := NewHandlers(wp)
-	return &Server{Config: cfg, wp: wp, handlers: handlers}
+	wp := internal.NewWorkerPool(5)
+	cb := internal.NewCircuitBreaker(3, 10) // Create a new circuit breaker
+	handlers := NewHandlers(wp, cb)         // Pass the circuit breaker to handlers
+	return &Server{Config: cfg, wp: wp, handlers: handlers, circuitBreaker: cb}
 }
 
-// Start starts the server
+// Start starts the server and listens for incoming requests and signals.
 func (s *Server) Start() error {
-	http.HandleFunc("/logs", s.handlers.HandleLog) // Use the handler
+	// Setup HTTP server
+	srv := &http.Server{Addr: s.ListenAddr}
+
+	http.HandleFunc("/logs", s.handlers.HandleLog)           // Use the handler
+	http.HandleFunc("/health", s.handlers.HandleHealthCheck) // Use the handler
 
 	fmt.Printf("Starting server on %s\n", s.ListenAddr)
-	return http.ListenAndServe(s.ListenAddr, nil)
+	// If the server fails to start, return the error
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("server failed to start: %v", err)
+	}
+
+	return nil
+}
+
+// Stop gracefully stops the worker pool and logs the shutdown.
+func (s *Server) Stop() {
+	s.wp.Stop() // Stop the worker pool
+	fmt.Println("Server stopped gracefully")
 }
