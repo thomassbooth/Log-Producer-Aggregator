@@ -38,11 +38,12 @@ func (h *Handlers) HandleLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var logMsg internal.LogMessage
+	// check valid json passed over
 	if err := utils.DecodeJSON(r.Body, &logMsg); err != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
-
+	// Call the circuit breaker's Call method to handle the request
 	if err := h.circuitBreaker.Call(func() error {
 		h.wp.AddJob(logMsg)
 		return nil

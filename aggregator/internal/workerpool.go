@@ -14,7 +14,7 @@ type LogMessage struct {
 type Worker struct {
 	id     int
 	jobs   <-chan LogMessage
-	quit   chan struct{}
+	quit   <-chan struct{}
 	active *int32
 }
 
@@ -28,10 +28,10 @@ type WorkerPool struct {
 func NewWorkerPool(numWorkers int) *WorkerPool {
 
 	jobs := make(chan LogMessage, 100) // Buffer to hold incoming jobs
-
+	quit := make(chan struct{})        // Channel to signal worker to stop
 	pool := &WorkerPool{
 		jobs:        jobs,
-		quit:        make(chan struct{}),
+		quit:        quit,
 		workers:     make([]*Worker, numWorkers),
 		activeCount: 0,
 	}
@@ -41,7 +41,7 @@ func NewWorkerPool(numWorkers int) *WorkerPool {
 		worker := Worker{
 			id:     i,
 			jobs:   jobs,
-			quit:   make(chan struct{}),
+			quit:   quit,
 			active: &pool.activeCount,
 		}
 		pool.workers[i] = &worker
@@ -57,6 +57,7 @@ func (w *Worker) start() {
 	atomic.AddInt32(w.active, 1)        // Increment active worker count
 	defer atomic.AddInt32(w.active, -1) // Decrement active worker count when done
 
+free:
 	for {
 		select {
 		case logMsg := <-w.jobs:
@@ -66,14 +67,14 @@ func (w *Worker) start() {
 			// Here you would add code to save logMsg to MongoDB or other storage
 		case <-w.quit:
 			fmt.Printf("Worker %d stopping\n", w.id)
-			return // Exit the worker's loop to stop it
+			w.Stop()
+			break free // I want to break freeeee
 		}
 	}
 }
 
 // Stop stops the worker by sending a signal to its quit channel.
 func (w *Worker) Stop() {
-	close(w.quit) // Close the quit channel to signal the worker to stop
 }
 
 func (wp *WorkerPool) AddJob(logMsg LogMessage) {
@@ -82,10 +83,13 @@ func (wp *WorkerPool) AddJob(logMsg LogMessage) {
 
 // Stop stops all workers in the pool.
 func (wp *WorkerPool) Stop() {
-	for _, worker := range wp.workers {
-		worker.Stop() // Call each worker's Stop method
+	// Signal all workers to stop
+	for range wp.workers {
+		wp.quit <- struct{}{} // Send stop signal to worker
 	}
-	close(wp.quit) // Close the main quit channel if needed (optional)
+
+	// Optionally close the jobs channel to prevent further job submissions
+	close(wp.jobs) // This is optional
 }
 
 // ActiveWorkers returns the number of active workers.

@@ -28,17 +28,17 @@ func NewServer(cfg Config) *Server {
 	}
 	wp := internal.NewWorkerPool(5)
 	cb := internal.NewCircuitBreaker(3, 10) // Create a new circuit breaker
-	handlers := NewHandlers(wp, cb)         // Pass the circuit breaker to handlers
+
+	handlers := NewHandlers(wp, cb) // Pass the circuit breaker to handlers
 	return &Server{Config: cfg, wp: wp, handlers: handlers, circuitBreaker: cb}
 }
 
 // Start starts the server and listens for incoming requests and signals.
 func (s *Server) Start() error {
-	// Setup HTTP server
+	// Setup HTTP server and routes
 	srv := &http.Server{Addr: s.ListenAddr}
-
-	http.HandleFunc("/logs", s.handlers.HandleLog)           // Use the handler
-	http.HandleFunc("/health", s.handlers.HandleHealthCheck) // Use the handler
+	http.HandleFunc("/logs", s.handlers.HandleLog)
+	http.HandleFunc("/health", s.handlers.HandleHealthCheck)
 
 	fmt.Printf("Starting server on %s\n", s.ListenAddr)
 	// If the server fails to start, return the error
@@ -49,8 +49,9 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// Stop gracefully stops the worker pool and logs the shutdown.
+// Stop gracefully stops the worker pool
 func (s *Server) Stop() {
-	s.wp.Stop() // Stop the worker pool
+	//close the worker pool
+	s.wp.Stop()
 	fmt.Println("Server stopped gracefully")
 }

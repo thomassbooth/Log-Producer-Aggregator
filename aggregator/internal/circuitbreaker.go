@@ -41,6 +41,7 @@ func (cb *CircuitBreaker) Call(fn func() error) error {
 		// Allow a single call to test if the issue is resolved
 	}
 
+	//execute our function and check for errors
 	if err := fn(); err != nil {
 		cb.failureCount++
 		cb.lastFailureTime = time.Now()
