@@ -33,18 +33,19 @@ func (cb *CircuitBreaker) Call(fn func() error) error {
 	switch cb.state {
 	case "open":
 		if time.Since(cb.lastFailureTime) < cb.resetTimeout {
+			fmt.Println("Circuit breaker is open, rejecting call")
 			return fmt.Errorf("circuit breaker is open")
 		}
 		// Switch to half-open state if timeout has passed
 		cb.state = "half-open"
 	case "half-open":
-		// Allow a single call to test if the issue is resolved
 	}
 
-	//execute our function and check for errors
+	// Execute our function and check for errors
 	if err := fn(); err != nil {
 		cb.failureCount++
 		cb.lastFailureTime = time.Now()
+		fmt.Printf("Call failed, failure count: %d\n", cb.failureCount)
 		if cb.failureCount >= cb.failureThreshold {
 			cb.state = "open"
 		}
@@ -57,4 +58,11 @@ func (cb *CircuitBreaker) Call(fn func() error) error {
 		cb.state = "closed" // Return to closed state
 	}
 	return nil
+}
+
+// State returns the current state of the circuit breaker
+func (cb *CircuitBreaker) State() string {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	return cb.state
 }

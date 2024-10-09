@@ -2,33 +2,30 @@ package internal
 
 import (
 	"fmt"
+	"log-aggregator/aggregator/storage"
+	"log-aggregator/aggregator/utils"
 	"sync/atomic"
-	"time"
 )
 
-type LogMessage struct {
-	Timestamp time.Time `json:"timestamp"`
-	Level     string    `json:"level"`
-	Message   string    `json:"message"`
-}
 type Worker struct {
 	id     int
-	jobs   <-chan LogMessage
+	jobs   <-chan utils.Job
 	quit   <-chan struct{}
 	active *int32
+	store  *storage.Storage
 }
 
 type WorkerPool struct {
-	jobs        chan LogMessage
+	jobs        chan utils.Job
 	quit        chan struct{}
 	workers     []*Worker
 	activeCount int32
 }
 
-func NewWorkerPool(numWorkers int) *WorkerPool {
+func NewWorkerPool(numWorkers int, store *storage.Storage) *WorkerPool {
 
-	jobs := make(chan LogMessage, 100) // Buffer to hold incoming jobs
-	quit := make(chan struct{})        // Channel to signal worker to stop
+	jobs := make(chan utils.Job, 100) // Buffer to hold incoming jobs
+	quit := make(chan struct{})       // Channel to signal worker to stop
 	pool := &WorkerPool{
 		jobs:        jobs,
 		quit:        quit,
@@ -43,6 +40,7 @@ func NewWorkerPool(numWorkers int) *WorkerPool {
 			jobs:   jobs,
 			quit:   quit,
 			active: &pool.activeCount,
+			store:  store,
 		}
 		pool.workers[i] = &worker
 		// Start each worker in a new goroutine
@@ -60,11 +58,24 @@ func (w *Worker) start() {
 free:
 	for {
 		select {
-		case logMsg := <-w.jobs:
-			// Process the log message
-			time.Sleep(10 * time.Second)
-			fmt.Printf("Worker %d processing log: %s\n", w.id, logMsg.Message)
-			// Here you would add code to save logMsg to MongoDB or other storage
+		case job := <-w.jobs:
+			switch job.Type {
+			case utils.FetchJob: // Specify the log level
+				// Fetch logs from the store
+				fetchedLogs, err := w.store.GetLogMessages(job.StartTime, job.EndTime, job.LogLevel)
+				// Send the fetched logs back via the Result channel
+				if err != nil {
+					fmt.Println(err)
+					job.Result <- nil
+					continue
+				}
+
+				job.Result <- fetchedLogs
+
+			case utils.StoreJob:
+				w.store.InsertLogMessages(job.Logs)
+			}
+
 		case <-w.quit:
 			fmt.Printf("Worker %d stopping\n", w.id)
 			w.Stop()
@@ -77,8 +88,8 @@ free:
 func (w *Worker) Stop() {
 }
 
-func (wp *WorkerPool) AddJob(logMsg LogMessage) {
-	wp.jobs <- logMsg
+func (wp *WorkerPool) AddJob(job utils.Job) {
+	wp.jobs <- job
 }
 
 // Stop stops all workers in the pool.
