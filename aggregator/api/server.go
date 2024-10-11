@@ -13,6 +13,7 @@ const defaultListenAddr = ":8005"
 // Config holds the configuration for the server.
 type Config struct {
 	ListenAddr string
+	DSN        string
 }
 
 // Server struct holds the server's configuration, worker pool, and handlers.
@@ -29,7 +30,7 @@ func NewServer(cfg Config) *Server {
 		cfg.ListenAddr = defaultListenAddr
 	}
 
-	db, err := storage.NewStorage("mongodb://mongodb:27017", "logdb", "logs")
+	db, err := storage.NewStorage(cfg.DSN, "logdb", "logs")
 	if err != nil {
 		log.Fatalf("Error connecting to MongoDB: %v", err)
 	}

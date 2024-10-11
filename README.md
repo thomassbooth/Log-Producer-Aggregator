@@ -5,6 +5,20 @@
 - Upon recieving a batch of logs, the server pushes the log batch to a pool of workers which one of them will pick them and process into the database. A response is recieved directly.
 - Upon recieving a request for logs, the server pushes the request to a pool of workers. One will make a database request to fetch them based upon the query params that are passed, startTime, endTime and logLevel.
 
+## Setup
+
+1. Check the Config inside main.go is correct
+
+2. Build the docker containers
+```bash
+docker-compose build
+```
+
+3. Start the container
+```bash
+docker-compose up -d
+```
+
 ## Structure - aggregator
 ### api
 - **`handlers.go`***
@@ -52,18 +66,7 @@
 - **`sender.go`**
 - Produces random logs and sends a request to the server to recieve
 
-## Setup
-
-1. Build the docker containers
-```bash
-docker-compose build
-```
-
-2. Start the container
-```bash
-docker-compose up -d
-```
-
+## Examples
 example retrival endpoint:
 ```bash
 curl -X GET "http://localhost:8005/logs/retrieve?startTime=2024-10-07T20:00:00Z&endTime=2024-10-08T08:00:00Z&logLevel=WARNING"
