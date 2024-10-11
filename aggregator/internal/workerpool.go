@@ -23,7 +23,6 @@ type WorkerPool struct {
 }
 
 func NewWorkerPool(numWorkers int, store *storage.Storage) *WorkerPool {
-
 	jobs := make(chan utils.Job, 100) // Buffer to hold incoming jobs
 	quit := make(chan struct{})       // Channel to signal worker to stop
 	pool := &WorkerPool{
@@ -59,22 +58,7 @@ free:
 	for {
 		select {
 		case job := <-w.jobs:
-			switch job.Type {
-			case utils.FetchJob: // Specify the log level
-				// Fetch logs from the store
-				fetchedLogs, err := w.store.GetLogMessages(job.StartTime, job.EndTime, job.LogLevel)
-				// Send the fetched logs back via the Result channel
-				if err != nil {
-					fmt.Println(err)
-					job.Result <- nil
-					continue
-				}
-
-				job.Result <- fetchedLogs
-
-			case utils.StoreJob:
-				w.store.InsertLogMessages(job.Logs)
-			}
+			w.processJob(job) // Process the job
 
 		case <-w.quit:
 			fmt.Printf("Worker %d stopping\n", w.id)
@@ -84,8 +68,28 @@ free:
 	}
 }
 
+// processJob processes the given job based on its type.
+func (w *Worker) processJob(job utils.Job) {
+	switch job.Type {
+	case utils.FetchJob: // Specify the log level
+		// Fetch logs from the store
+		fetchedLogs, err := w.store.GetLogMessages(job.StartTime, job.EndTime, job.LogLevel)
+		// Send the fetched logs back via the Result channel
+		if err != nil {
+			fmt.Println(err)
+			job.Result <- nil
+			return
+		}
+		job.Result <- fetchedLogs
+
+	case utils.StoreJob:
+		w.store.InsertLogMessages(job.Logs)
+	}
+}
+
 // Stop stops the worker by sending a signal to its quit channel.
 func (w *Worker) Stop() {
+	// You can implement any cleanup logic here if needed
 }
 
 func (wp *WorkerPool) AddJob(job utils.Job) {

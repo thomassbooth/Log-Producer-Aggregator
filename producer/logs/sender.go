@@ -56,12 +56,15 @@ func LogProducer() {
 	// Create a new random generator with a seed based on the current time
 	r := rand.New(rand.NewSource(uint64(time.Now().UnixNano())))
 
+	// Define log levels
+	logLevels := []string{"INFO", "WARN", "ERROR"}
+
 	// Prepare a batch of log messages
 	var logs []LogMessage
 	for i := 0; i < 10; i++ { // Simulate creating 10 log messages
 		message := fmt.Sprintf("Log message %d", r.Intn(100))
-		level := "INFO"               // You can vary the log level based on your needs
-		timestamp := time.Now().UTC() // Get the current UTC time
+		level := logLevels[r.Intn(len(logLevels))] // Randomly select a log level
+		timestamp := time.Now().UTC()              // Get the current UTC time
 
 		logs = append(logs, LogMessage{
 			Timestamp: timestamp,
